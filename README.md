@@ -3,3 +3,4 @@ The genious [Most Dangerous Writting App](http://www.themostdangerouswritingapp.
 ### Use
 Just source `kerouac.R`
 
+![screenshot](https://raw.githubusercontent.com/vbonhomme/Kerouac/master/screenshot.jpg)
