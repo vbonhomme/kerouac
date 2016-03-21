@@ -38,12 +38,12 @@ kerouac <- function(){
                                    "Countdown",
                                    choices=list("10sec"=1/6, "2min"=2, "5min"=5, "20min"=20),
                                    inline=TRUE,
-                                   selected=5)),
+                                   selected=2)),
 
                column(4,
                       radioButtons("grace",
                                    "Grace period",
-                                   choices=list("2sec"=2, "5sec"=5, "10sec"=10),
+                                   choices=list("5sec"=5, "10sec"=10),
                                    inline=TRUE,
                                    selected=5))))),
 
@@ -52,12 +52,13 @@ kerouac <- function(){
       column(10, offset=1,
              # Prose area
              htmlOutput("banner"),
+             #textOutput("debug"),
              p("Type your prose below:"),
              tags$textarea(id="prose", rows=20, cols=80, ""),
              # Countdowns
              textOutput("time_remaining", inline=FALSE),
-             textOutput("time_lastedit", inline=FALSE),
-             textOutput("stats", inline=FALSE),
+             #textOutput("time_lastedit", inline=FALSE),
+             textOutput("charcount", inline=FALSE),
              hr(),
              span("Based on the genious ",  a(href="themostdangerouswritingapp.com", "Most Dangerous Writing App"),
                   "by", a(href="twitter.com/maebert", "Manuel Elbert"),
@@ -79,6 +80,7 @@ kerouac <- function(){
     # time of first edit -----
     # starts countdown when the button is pressed
     time_firstedit <- eventReactive(input$start, {
+      output$banner <- renderUI(HTML('<br /><div class="alert alert-info"><center><bold>Type, you fool!<bold></center></div>'))
       updateTextInput(session, "prose", value="")
       Sys.time()
     })
@@ -92,8 +94,9 @@ kerouac <- function(){
     # renders it
     output$time_remaining <- renderText({
       invalidateLater(100, session)
-      if (time_firstedit()>0 & !fail() & !success())
-        paste0("Remaining: ", time_remaining() %/% 60, ":", round(time_remaining() %% 60), sep="")
+      if (time_firstedit()>0 & !any(fail(), success()))
+        c(paste0("Remaining: ", time_remaining() %/% 60, ":", round(time_remaining() %% 60)),
+          rep("*", round(grace() - as.numeric(difftime(Sys.time(), time_lastedit(), units="sec")))))
       else
         ""
     })
@@ -102,45 +105,42 @@ kerouac <- function(){
     # any edit will reset this countdown
     time_lastedit <- eventReactive(list(grace(), duration(), input$start, input$prose), Sys.time())
     # renders it
-    output$time_lastedit <-  renderText({
-      invalidateLater(100, session)
-      if (time_firstedit()>0 & !fail() &!success())
-        rep("*", round(grace() - as.numeric(difftime(Sys.time(), time_lastedit(), units="sec"))))
-      else
-        ""
-    })
+    # output$time_lastedit <-  renderText({
+    #   invalidateLater(100, session)
+    #   if (time_firstedit()>0 & !any(fail(), success()))
+    #     rep("*", round(grace() - as.numeric(difftime(Sys.time(), time_lastedit(), units="sec"))))
+    #   else
+    #     ""
+    # })
 
     # counts the number of char -----
     charcount <- reactive(nchar(input$prose))
 
-    # counts number of words ------
-    wordcount <- reactive(length(grepRaw("[[:punct:]]", input$prose, all=TRUE)))
-
     # renders it
-    output$stats <- renderText({
-      if (time_firstedit()>0 & !fail())
-        paste(charcount(), "characters","/", wordcount(), "words")
+    output$charcount <- renderText({
+      if (time_firstedit()>0 & !any(fail(), success()))
+        paste(charcount(), "characters")
       else
         ""
     })
 
     ### fail flag -------
     fail <- reactive({
-      invalidateLater(500, session)
-      all(!success(), (Sys.time() - time_lastedit()) > grace())
+      invalidateLater(100, session)
+      all((Sys.time() - time_lastedit()) > grace(), !success())
     })
 
     # success flag --------
     success <- reactive({
-      invalidateLater(500, session)
-      all(charcount()>0, time_remaining()<=0, charcount()>0)
+      invalidateLater(100, session)
+      all(time_remaining() <= 0, charcount()>0)
     })
 
     # banner spitting ------
     observe({
 
-      if (!success() & !fail())
-        output$banner <- renderUI(HTML('<br /><div class="alert alert-info"><center><bold>Type, you fool!<bold></center></div>'))
+      #if (!success() & !fail())
+      #  output$banner <- renderUI(HTML('<br /><div class="alert alert-info"><center><bold>Type, you fool!<bold></center></div>'))
       if (success())
         output$banner <- renderUI(HTML('<br /><div class="alert alert-success"><center><bold>Very well done!</bold></center></div>'))
       if (fail()) {
@@ -148,6 +148,11 @@ kerouac <- function(){
         output$banner <- renderUI(HTML('<br /><div class="alert alert-danger"><center><bold>You miserably failed.<bold></center></div>'))
       }
     })
+
+    # output$debug <- renderText(paste("firstedit:", time_firstedit(), "\n",
+    #                                  "lastedit:", time_lastedit(), "\n",
+    #                                  "fail:", fail(), "\n",
+    #                                  "success:", success()))
 
   })
 
